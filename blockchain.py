@@ -14,7 +14,7 @@ class Blockchain(object):
 		# Create a new genesis block
 		self.new_block(previous_hash=1, proof=100)
 
-	def new_block(self):
+	def new_block(self, proof,  previous_hash=None):
 		'''
 		Create a new Block in the Blockchain
 
@@ -28,7 +28,7 @@ class Blockchain(object):
 			'timestamp': time(),
 			'transactions': self.current_transactions,
 			'proof': proof,
-			'previous_hash':previous_hash or self.hash(self.chain[-1])
+			'previous_hash':previous_hash or self.hash(self.chain[-1]),
 		}
 
 		# Reset the current list of transactions
@@ -37,7 +37,7 @@ class Blockchain(object):
 		self.chain.append(block)
 		return block
 
-	def new_transaction(self):
+	def new_transaction(self, sender, recipient, amount):
 		"""
 		Creates a new transaction to go into the next mined Block
 
@@ -118,7 +118,31 @@ blockchain = Blockchain()
 
 @app.route('/mine', methods=['GET'])
 def mine():
-	return "Under construction"
+	# We run the proof of work algorith to get the next proof
+	last_block = blockchain.last_block
+	last_proof = last_block['proof']
+	proof = blockchain.proof_of_work(last_proof)
+
+	# Miner needs to be rewarded for finding proof
+	# The sender field is 0 to denote it as a reward, ie. a newly mined coin.
+	blockchain.new_transaction(
+		sender='0',
+		recipient = node_identifier,
+		amount = 1,
+	)
+
+	# Forge the new Block by adding it to the chain
+	block = blockchain.new_block(proof)
+
+	response = {
+		'message': 'New block forged',
+		'index': block['index'],
+		'transactions': block['transactions'],
+		'proof': block['proof'],
+		'previous_hash': block['previous_hash'],
+	}
+
+	return jsonify(response), 200
 
 @app.route('/transactions/new', methods=['POST'])
 def new_transaction():
@@ -135,11 +159,11 @@ def new_transaction():
 	response = {'message': 'Transaction will be added to Block {}'.format(index)}
 	return jsonify(response), 201	
 
-@app.route('chain', methods=['GET'])
+@app.route('/chain', methods=['GET'])
 def full_chain():
 	response = {
-		'chain' = blockchain.chain,
-		'length' = len(blockchain.chain),
+		'chain' : blockchain.chain,
+		'length' : len(blockchain.chain),
 	}
 	return jsonify(response), 200
 
